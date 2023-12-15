@@ -1,30 +1,45 @@
-"use client";
 import React, { ChangeEvent, useState, useRef, useEffect } from "react";
-import mockCountries from "@/mocks/mockSearchData";
 import { Country } from "@/types/data";
+import mockCountries from "@/mocks/mockSearchData";
+import Spinner from "../common/Spinner";
 
-const SyncSearch: React.FC = () => {
+const AsyncSearch: React.FC = () => {
+  const [query, setQuery] = useState("");
   const [countries, setCountries] = useState<Country[]>([...mockCountries]);
-  const [searchInput, setSearchInput] = useState<string>("");
+  const [filteredCountries, setFilteredCountries] = useState<Country[]>([]);
   const [dropdownVisible, setDropdownVisible] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
 
-  const refElement = useRef<HTMLInputElement>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const resultElementRef = useRef<HTMLDivElement>(null);
-  const filteredCountries = searchInput
-    ? countries.filter((country) =>
-        country.name.toLowerCase().includes(searchInput.toLowerCase())
-      )
-    : countries;
 
-  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearchInput(e.target.value);
-    setDropdownVisible(true);
+  const simulateAsyncSearch = (query: string) => {
+    setIsLoading(true);
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      setFilteredCountries(
+        query
+          ? countries.filter((country) =>
+              country.name.toLowerCase().includes(query.toLowerCase())
+            )
+          : []
+      );
+      setIsLoading(false);
+    }, 300);
   };
 
+  useEffect(() => {
+    simulateAsyncSearch(query);
+    setDropdownVisible(query.length > 0);
+  }, [query]);
+
   const handleCheckboxChange = (code: string) => {
-    setCountries(
-      countries.map((country) =>
+    setCountries((prevCountries) =>
+      prevCountries.map((country) =>
         country.code === code
           ? { ...country, selected: !country.selected }
           : country
@@ -32,27 +47,27 @@ const SyncSearch: React.FC = () => {
     );
   };
 
-  const handleContainerBlur = (event: React.FocusEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.contains(event.relatedTarget)) {
-      setDropdownVisible(false);
-    }
-  };
-
   const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
-    const { key } = e;
+    if (!dropdownVisible || countries.length === 0) return;
 
+    const { key } = e;
     if (key === "ArrowDown") {
       e.preventDefault();
       setFocusedIndex((prev) =>
-        prev < filteredCountries.length - 1 ? prev + 1 : prev
+        prev < countries.length - 1 ? prev + 1 : prev
       );
     } else if (key === "ArrowUp") {
       e.preventDefault();
       setFocusedIndex((prev) => (prev > 0 ? prev - 1 : 0));
     } else if (key === "Enter" && focusedIndex !== -1) {
       e.preventDefault();
-      handleCheckboxChange(filteredCountries[focusedIndex].code);
-      // Do not update focusedIndex here
+      handleCheckboxChange(countries[focusedIndex].code);
+    }
+  };
+
+  const handleContainerBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      setDropdownVisible(false);
     }
   };
 
@@ -67,27 +82,31 @@ const SyncSearch: React.FC = () => {
 
   return (
     <div
-      onBlur={handleContainerBlur}
-      tabIndex={-1}
-      onKeyDown={handleKeyDown}
       className="relative mb-4"
+      onBlur={handleContainerBlur}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
     >
-      <label className="font-semibold">Sync Search</label>
+      <label className="font-semibold">Async Search</label>
       <input
-        ref={refElement}
-        className="w-full p-2 mb-4 border rounded shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+        className="relative w-full p-2 mb-4 border rounded shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
         type="text"
         placeholder="Type to begin searching"
-        value={searchInput}
-        onChange={handleSearchChange}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
       />
+      {isLoading && (
+        <div className="absolute right-2 top-6">
+          <Spinner />
+        </div>
+      )}
       {dropdownVisible && (
         <div
           ref={resultElementRef}
           className="absolute z-50 bg-white shadow-lg rounded-md max-h-60 overflow-y-auto"
         >
-          {filteredCountries.length > 0 ? (
-            filteredCountries.map((country, index) => (
+          {countries.length > 0 ? (
+            countries.map((country, index) => (
               <div
                 key={index}
                 style={{
@@ -98,6 +117,7 @@ const SyncSearch: React.FC = () => {
               >
                 <div className="flex-grow mr-4">
                   <div className="truncate w-[200px]">
+                    <span className="font-semibold">{country.code} - </span>
                     <span>{country.name}</span>
                   </div>
                 </div>
@@ -118,4 +138,4 @@ const SyncSearch: React.FC = () => {
   );
 };
 
-export default SyncSearch;
+export default AsyncSearch;

@@ -1,11 +1,11 @@
 import React from "react";
 import Image from "next/image";
-import "./Spinner.css";
+import "@/styles/Spinner.css";
 
 const Spinner = () => {
   return (
     <div className="spinner">
-      <Image src="/90-spin.svg" alt="Loading..." width={40} height={40} />
+      <Image src="/spin.svg" alt="Loading..." width={24} height={12} />
     </div>
   );
 };
